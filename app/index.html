@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'" />
+  <title>CANdo</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- Top bar -->
+  <div id="top-bar">
+    <span class="label">PORT</span>
+    <select id="port-select"></select>
+    <button id="refresh-btn" title="Refresh ports">⟳</button>
+    <span class="divider">│</span>
+    <span class="label">SPEED</span>
+    <select id="speed-select">
+      <option value="1">1.000 Mbps</option>
+      <option value="2">2.000 Mbps</option>
+      <option value="3">~3.0 Mbps</option>
+      <option value="4">4.000 Mbps</option>
+      <option value="5">~4.9 Mbps</option>
+      <option value="6">~5.8 Mbps</option>
+      <option value="7">~7.1 Mbps</option>
+      <option value="8">8.000 Mbps</option>
+    </select>
+    <span class="divider">│</span>
+    <button id="connect-btn" class="btn-connect">Connect</button>
+    <button id="channel-btn" class="btn-channel" disabled>Open</button>
+    <span class="divider">│</span>
+    <button id="record-btn" disabled>⏺ Record</button>
+    <span style="flex:1"></span>
+    <span class="label">Frames: <span id="frame-count">0</span></span>
+    <button id="clear-btn">Clear</button>
+  </div>
+
+  <!-- Transmit bar -->
+  <div id="tx-bar">
+    <span class="tx-badge">&#x2191; TRANSMIT</span>
+    <span class="label">ID</span>
+    <input id="tx-id" type="text" placeholder="7FF" title="CAN ID (hex)" />
+    <label class="tx-check"><input id="tx-ext" type="checkbox" /> EXT</label>
+    <label class="tx-check"><input id="tx-rtr" type="checkbox" /> RTR</label>
+    <span class="label">DLC</span>
+    <select id="tx-dlc">
+      <option value="0">0</option><option value="1">1</option>
+      <option value="2">2</option><option value="3">3</option>
+      <option value="4">4</option><option value="5">5</option>
+      <option value="6">6</option><option value="7">7</option>
+      <option value="8" selected>8</option>
+      <option value="9">12</option><option value="10">16</option>
+      <option value="11">20</option><option value="12">24</option>
+      <option value="13">32</option><option value="14">48</option>
+      <option value="15">64</option>
+    </select>
+    <span class="label">DATA (hex)</span>
+    <textarea id="tx-data" rows="1" placeholder="aa bb cc dd …" spellcheck="false"></textarea>
+    <button id="tx-send" disabled>Send</button>
+    <span class="divider">│</span>
+    <label class="tx-check"><input id="tx-repeat-chk" type="checkbox" /> Repeat</label>
+    <input id="tx-interval" type="number" value="100" min="1" title="Interval in ms" disabled />
+    <span class="label">ms ×</span>
+    <input id="tx-count" type="number" value="0" min="0" title="Count (0 = infinite)" disabled />
+    <button id="tx-toggle" disabled>Start</button>
+  </div>
+
+  <!-- Filter bar -->
+  <div id="filter-bar">
+    <span class="label">FILTER</span>
+    <input id="filter-input" type="text" placeholder="ID or data…" />
+    <button id="idlist-btn">ID List…</button>
+    <span class="divider">│</span>
+    <button id="def-open-btn">Definitions…</button>
+    <span id="def-active-label" class="label"></span>
+    <span id="filter-count" class="label"></span>
+  </div>
+
+  <!-- Table header -->
+  <div id="table-header" class="table-row">
+    <span>#</span>
+    <span>LAST SEEN</span>
+    <span>ID</span>
+    <span>FLAGS</span>
+    <span>DLC</span>
+    <span>COUNT</span>
+    <span>DATA</span>
+  </div>
+
+  <!-- Frame log -->
+  <div id="frame-log"></div>
+
+  <!-- Status bar -->
+  <div id="status-bar">
+    <span id="status-conn">⬤ <span>Disconnected</span></span>
+    <span id="status-channel">Channel: <span>Closed</span></span>
+    <span id="status-speed">Speed: <span>—</span></span>
+    <span style="flex:1"></span>
+    <span id="status-record"></span>
+  </div>
+
+  <!-- ID List modal -->
+  <div id="modal-overlay" class="hidden">
+    <div id="modal">
+      <div id="modal-header">
+        <span>CAN ID Filter</span>
+        <button id="modal-close">✕</button>
+      </div>
+      <div id="modal-mode">
+        <button id="mode-allow" class="active">Allowlist</button>
+        <button id="mode-block">Blocklist</button>
+      </div>
+      <textarea id="modal-ids" placeholder="One hex ID per line, e.g.&#10;02FF&#10;1FFFFFFF"></textarea>
+      <div id="modal-footer">
+        <button id="modal-apply">Apply</button>
+        <button id="modal-cancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Definition Editor Modal -->
+  <div id="def-overlay" class="hidden">
+    <div id="def-dialog">
+
+      <!-- Header -->
+      <div id="def-dialog-header">
+        <span class="def-title">CAN Definitions</span>
+        <span class="label">Name:</span>
+        <input id="def-file-name" type="text" placeholder="Untitled" />
+        <span style="flex:1"></span>
+        <button id="def-load-btn">Load JSON</button>
+        <button id="def-save-btn">Save JSON</button>
+        <button id="def-clear-btn" title="Clear all definitions">Clear</button>
+        <button id="def-dialog-close">✕</button>
+      </div>
+
+      <!-- Body: sidebar + content -->
+      <div id="def-dialog-body">
+
+        <!-- Left: message list -->
+        <div id="def-msg-panel">
+          <div class="def-panel-title">MESSAGES</div>
+          <div id="def-msg-list"></div>
+          <div id="def-msg-panel-btns">
+            <button id="def-msg-add">+ Add</button>
+            <button id="def-msg-del">− Delete</button>
+          </div>
+        </div>
+
+        <!-- Right: message editor or field editor -->
+        <div id="def-detail-panel">
+
+          <!-- Empty state -->
+          <div id="def-detail-empty">
+            <span class="label">Select a message or click "+ Add"</span>
+          </div>
+
+          <!-- Message editor -->
+          <div id="def-msg-editor" class="hidden">
+            <div class="def-form-section">
+              <div class="def-form-row">
+                <label class="def-label">Name</label>
+                <input id="def-edit-name" type="text" placeholder="Engine Status" />
+              </div>
+              <div class="def-form-row">
+                <label class="def-label">ID (hex)</label>
+                <input id="def-edit-id" type="text" placeholder="1A0" class="def-hex-input" />
+                <label class="def-label">Mask (hex)</label>
+                <input id="def-edit-mask" type="text" placeholder="7FF" class="def-hex-input" />
+              </div>
+              <div class="def-form-row">
+                <label class="def-label">Description</label>
+                <input id="def-edit-desc" type="text" placeholder="Optional description" class="def-wide-input" />
+              </div>
+            </div>
+
+            <div class="def-section-header">
+              <span class="def-panel-title">FIELDS</span>
+              <button id="def-add-num-btn">+ Number</button>
+              <button id="def-add-bits-btn">+ Bits</button>
+              <button id="def-add-str-btn">+ String</button>
+            </div>
+            <div id="def-field-list"></div>
+          </div>
+
+          <!-- Field editor (overlaid) -->
+          <div id="def-field-editor" class="hidden">
+            <div id="def-field-editor-header">
+              <button id="def-field-back">← Back</button>
+              <span id="def-field-editor-title">Edit Field</span>
+            </div>
+            <div id="def-field-form"></div>
+            <div id="def-field-editor-footer">
+              <button id="def-field-save">Save Field</button>
+              <button id="def-field-cancel">Cancel</button>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast container -->
+  <div id="toast-container"></div>
+
+  <script src="polyfill.js"></script>
+  <script src="dist/renderer.js"></script>
+</body>
+</html>
