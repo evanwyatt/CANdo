@@ -16,6 +16,8 @@ export interface TransmitIpcRequest {
   id:      number;
   ext:     boolean;
   rtr:     boolean;
+  fd:      boolean;
+  brs:     boolean;
   dlc:     number;
   dataHex: string;
 }

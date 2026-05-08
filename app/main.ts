@@ -189,19 +189,19 @@ ipcMain.handle('stopLogging', async () => {
 // ── Transmit ──────────────────────────────────────────────────────────────────
 
 ipcMain.handle('transmitFrame', (_e, req: {
-  id: number; ext: boolean; rtr: boolean; dlc: number; dataHex: string;
+  id: number; ext: boolean; rtr: boolean; fd: boolean; brs: boolean; dlc: number; dataHex: string;
 }) => {
   const data  = parseTransmitData(req.dataHex);
-  const flags = (req.ext ? 0x01 : 0) | (req.rtr ? 0x02 : 0);
+  const flags = (req.ext ? 0x01 : 0) | (req.rtr ? 0x02 : 0) | (req.fd ? 0x04 : 0) | (req.brs ? 0x08 : 0);
   serial.transmit(req.id, flags, req.dlc, data);
 });
 
 ipcMain.handle('startRepeat', (_e, req: {
-  id: number; ext: boolean; rtr: boolean; dlc: number; dataHex: string;
+  id: number; ext: boolean; rtr: boolean; fd: boolean; brs: boolean; dlc: number; dataHex: string;
 }, intervalMs: number, count: number) => {
   stopRepeatTimer();
   const data  = parseTransmitData(req.dataHex);
-  const flags = (req.ext ? 0x01 : 0) | (req.rtr ? 0x02 : 0);
+  const flags = (req.ext ? 0x01 : 0) | (req.rtr ? 0x02 : 0) | (req.fd ? 0x04 : 0) | (req.brs ? 0x08 : 0);
   const limit = count > 0 ? count : Infinity;
   let sent = 1;
   serial.transmit(req.id, flags, req.dlc, data);

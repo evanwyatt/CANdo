@@ -207,6 +207,7 @@ const toastCont    = document.getElementById('toast-container')!;
 const txId         = document.getElementById('tx-id')!         as HTMLInputElement;
 const txExt        = document.getElementById('tx-ext')!        as HTMLInputElement;
 const txRtr        = document.getElementById('tx-rtr')!        as HTMLInputElement;
+const txBrs        = document.getElementById('tx-brs')!        as HTMLInputElement;
 const txDlc        = document.getElementById('tx-dlc')!        as HTMLSelectElement;
 const txData       = document.getElementById('tx-data')!       as HTMLTextAreaElement;
 const txSend       = document.getElementById('tx-send')!       as HTMLButtonElement;
@@ -405,9 +406,12 @@ window.api.onToast((msg) => showToast(msg));
 // ── Transmit panel ────────────────────────────────────────────────────────────
 
 txDlc.addEventListener('change', () => {
-  const byteCount = dlcToBytes(parseInt(txDlc.value, 10));
+  const dlc       = parseInt(txDlc.value, 10);
+  const byteCount = dlcToBytes(dlc);
   txData.value = byteCount > 0 ? formatTxHex(Array(byteCount).fill('00').join('')) : '';
   txData.rows  = Math.max(1, Math.ceil(byteCount / 8));
+  txBrs.disabled = dlc <= 8;
+  if (dlc <= 8) txBrs.checked = false;
 });
 
 txData.addEventListener('input', () => {
@@ -466,7 +470,7 @@ txToggle.addEventListener('click', async () => {
   }
 });
 
-function buildTxRequest(): { id: number; ext: boolean; rtr: boolean; dlc: number; dataHex: string } | null {
+function buildTxRequest(): { id: number; ext: boolean; rtr: boolean; fd: boolean; brs: boolean; dlc: number; dataHex: string } | null {
   const idStr = txId.value.trim();
   if (!idStr) { showToast('Enter a CAN ID'); return null; }
   const id = parseInt(idStr, 16);
@@ -474,13 +478,15 @@ function buildTxRequest(): { id: number; ext: boolean; rtr: boolean; dlc: number
   const ext = txExt.checked;
   const rtr = txRtr.checked;
   const dlc = parseInt(txDlc.value, 10);
+  const fd  = dlc > 8;
+  const brs = fd && txBrs.checked;
   const dataHex = txData.value.replace(/[^0-9a-fA-F]/g, '');
   const required = dlcToBytes(dlc);
   if (!rtr && dataHex.length / 2 < required) {
     showToast(`DLC ${dlc} requires ${required} bytes but only ${Math.floor(dataHex.length / 2)} provided`);
     return null;
   }
-  return { id, ext, rtr, dlc, dataHex };
+  return { id, ext, rtr, fd, brs, dlc, dataHex };
 }
 
 // ── Frame table ───────────────────────────────────────────────────────────────
