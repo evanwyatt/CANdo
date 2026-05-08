@@ -566,7 +566,7 @@ window.api.onFrame((ev) => {
       <span class="col-ts">${formatTs(frame.ts)}</span>
       <span class="col-id">${formatId(frame)}</span>
       <span class="col-flags">${flagsHtml}</span>
-      <span class="col-dlc">${frame.dlc}</span>
+      <span class="col-dlc">${frame.dlc > 8 ? `${frame.dlc} [${dlcToBytes(frame.dlc)}B]` : frame.dlc}</span>
       <span class="count-cell"><span class="count-muted"><span class="count-val">1</span></span></span>
       <span class="col-data">${formatDataHex(frame)}</span>
       <div class="frame-decoded hidden"></div>

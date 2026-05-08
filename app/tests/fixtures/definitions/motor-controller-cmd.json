@@ -1,0 +1,66 @@
+{
+  "description": "Motor controller command: 16-bit BE position, four 12-bit fields packed into 6 bytes",
+  "definition": {
+    "version": 1,
+    "name": "MotorControllerCmd",
+    "messages": [
+      {
+        "name": "MotorCmd",
+        "id": "0x000",
+        "mask": "0x000",
+        "description": "unpack_cmd format: p16 | v12 | kp12 | kd12 | t12",
+        "fields": [
+          { "kind": "number", "name": "position",  "startByte": 0, "bitLength": 16, "byteOrder": "big" },
+          { "kind": "number", "name": "velocity",  "startByte": 2, "startBit": 7, "bitLength": 12, "byteOrder": "big" },
+          { "kind": "number", "name": "kp",        "startByte": 3, "startBit": 3, "bitLength": 12, "byteOrder": "big" },
+          { "kind": "number", "name": "kd",        "startByte": 5, "startBit": 7, "bitLength": 12, "byteOrder": "big" },
+          { "kind": "number", "name": "torque_ff", "startByte": 6, "startBit": 3, "bitLength": 12, "byteOrder": "big" }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "description": "known values: pos=0x1234 vel=0x567 kp=0x89A kd=0xBCD torque_ff=0xEF0",
+      "frame": { "id": "0x000", "dlc": 8, "data": ["0x12", "0x34", "0x56", "0x78", "0x9A", "0xBC", "0xDE", "0xF0"] },
+      "expected": {
+        "messageName": "MotorCmd",
+        "fields": [
+          { "name": "position",  "value": "4660", "rawValue": "4660" },
+          { "name": "velocity",  "value": "1383", "rawValue": "1383" },
+          { "name": "kp",        "value": "2202", "rawValue": "2202" },
+          { "name": "kd",        "value": "3021", "rawValue": "3021" },
+          { "name": "torque_ff", "value": "3824", "rawValue": "3824" }
+        ]
+      }
+    },
+    {
+      "description": "all zero bytes: all fields decode to 0",
+      "frame": { "id": "0x000", "dlc": 8, "data": ["0x00", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "MotorCmd",
+        "fields": [
+          { "name": "position",  "value": "0", "rawValue": "0" },
+          { "name": "velocity",  "value": "0", "rawValue": "0" },
+          { "name": "kp",        "value": "0", "rawValue": "0" },
+          { "name": "kd",        "value": "0", "rawValue": "0" },
+          { "name": "torque_ff", "value": "0", "rawValue": "0" }
+        ]
+      }
+    },
+    {
+      "description": "all 0xFF: position=65535, all 12-bit fields max at 4095",
+      "frame": { "id": "0x000", "dlc": 8, "data": ["0xFF", "0xFF", "0xFF", "0xFF", "0xFF", "0xFF", "0xFF", "0xFF"] },
+      "expected": {
+        "messageName": "MotorCmd",
+        "fields": [
+          { "name": "position",  "value": "65535", "rawValue": "65535" },
+          { "name": "velocity",  "value": "4095",  "rawValue": "4095"  },
+          { "name": "kp",        "value": "4095",  "rawValue": "4095"  },
+          { "name": "kd",        "value": "4095",  "rawValue": "4095"  },
+          { "name": "torque_ff", "value": "4095",  "rawValue": "4095"  }
+        ]
+      }
+    }
+  ]
+}

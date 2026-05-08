@@ -1,0 +1,66 @@
+{
+  "description": "Motor controller reply: 16-bit BE position, two 12-bit fields sharing a byte, 8-bit vbatt",
+  "definition": {
+    "version": 1,
+    "name": "MotorController",
+    "messages": [
+      {
+        "name": "MotorReply",
+        "id": "0x000",
+        "mask": "0x000",
+        "description": "pack_reply format: id | p16 | v12 | t12 | vb8",
+        "fields": [
+          { "kind": "number", "name": "motor_id", "startByte": 0, "bitLength": 8,  "byteOrder": "big" },
+          { "kind": "number", "name": "position", "startByte": 1, "bitLength": 16, "byteOrder": "big" },
+          { "kind": "number", "name": "velocity", "startByte": 3, "startBit": 7, "bitLength": 12, "byteOrder": "big" },
+          { "kind": "number", "name": "torque",   "startByte": 4, "startBit": 3, "bitLength": 12, "byteOrder": "big" },
+          { "kind": "number", "name": "vbatt",    "startByte": 6, "bitLength": 8,  "byteOrder": "big" }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "description": "known values: id=1 pos=0x1234 vel=0x567 torque=0x89A vbatt=0xBC",
+      "frame": { "id": "0x000", "dlc": 7, "data": ["0x01", "0x12", "0x34", "0x56", "0x78", "0x9A", "0xBC"] },
+      "expected": {
+        "messageName": "MotorReply",
+        "fields": [
+          { "name": "motor_id", "value": "1",    "rawValue": "1"    },
+          { "name": "position", "value": "4660", "rawValue": "4660" },
+          { "name": "velocity", "value": "1383", "rawValue": "1383" },
+          { "name": "torque",   "value": "2202", "rawValue": "2202" },
+          { "name": "vbatt",    "value": "188",  "rawValue": "188"  }
+        ]
+      }
+    },
+    {
+      "description": "all zero bytes: all fields decode to 0",
+      "frame": { "id": "0x000", "dlc": 7, "data": ["0x00", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "MotorReply",
+        "fields": [
+          { "name": "motor_id", "value": "0", "rawValue": "0" },
+          { "name": "position", "value": "0", "rawValue": "0" },
+          { "name": "velocity", "value": "0", "rawValue": "0" },
+          { "name": "torque",   "value": "0", "rawValue": "0" },
+          { "name": "vbatt",    "value": "0", "rawValue": "0" }
+        ]
+      }
+    },
+    {
+      "description": "all 0xFF: position=65535, velocity and torque each max at 4095",
+      "frame": { "id": "0x000", "dlc": 7, "data": ["0xFF", "0xFF", "0xFF", "0xFF", "0xFF", "0xFF", "0xFF"] },
+      "expected": {
+        "messageName": "MotorReply",
+        "fields": [
+          { "name": "motor_id", "value": "255",   "rawValue": "255"   },
+          { "name": "position", "value": "65535", "rawValue": "65535" },
+          { "name": "velocity", "value": "4095",  "rawValue": "4095"  },
+          { "name": "torque",   "value": "4095",  "rawValue": "4095"  },
+          { "name": "vbatt",    "value": "255",   "rawValue": "255"   }
+        ]
+      }
+    }
+  ]
+}
