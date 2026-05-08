@@ -1,0 +1,70 @@
+{
+  "description": "Bit field decoding",
+  "definition": {
+    "version": 1,
+    "name": "BitTest",
+    "messages": [
+      {
+        "name": "Status",
+        "id": "0x200",
+        "mask": "0x1FFFFFFF",
+        "fields": [
+          {
+            "kind": "bits",
+            "name": "flags",
+            "byteIndex": 0,
+            "bits": [
+              { "bit": 0, "name": "ready" },
+              { "bit": 1, "name": "enabled" },
+              { "bit": 3, "name": "fault" }
+            ]
+          },
+          {
+            "kind": "bits",
+            "name": "ctrl",
+            "byteIndex": 1,
+            "bits": [
+              { "bit": 0, "name": "run",  "activeHigh": true  },
+              { "bit": 1, "name": "stop", "activeHigh": false }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "description": "all monitored bits set, activeHigh=false inverts stop signal",
+      "frame": { "id": "0x200", "dlc": 8, "data": ["0x0B", "0x01", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "Status",
+        "fields": [
+          { "name": "flags", "value": "ready=1, enabled=1, fault=1", "rawValue": "0x0B" },
+          { "name": "ctrl",  "value": "run=1, stop=1",               "rawValue": "0x01" }
+        ]
+      }
+    },
+    {
+      "description": "all monitored bits clear, activeHigh=false inverts stop signal",
+      "frame": { "id": "0x200", "dlc": 8, "data": ["0x00", "0x02", "0x00", "0x00", "0x00", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "Status",
+        "fields": [
+          { "name": "flags", "value": "ready=0, enabled=0, fault=0", "rawValue": "0x00" },
+          { "name": "ctrl",  "value": "run=0, stop=0",               "rawValue": "0x02" }
+        ]
+      }
+    },
+    {
+      "description": "byteIndex beyond DLC shows n/a",
+      "frame": { "id": "0x200", "dlc": 1, "data": ["0x0B"] },
+      "expected": {
+        "messageName": "Status",
+        "fields": [
+          { "name": "flags", "value": "ready=1, enabled=1, fault=1", "rawValue": "0x0B" },
+          { "name": "ctrl",  "value": "n/a" }
+        ]
+      }
+    }
+  ]
+}

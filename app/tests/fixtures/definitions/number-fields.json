@@ -1,0 +1,79 @@
+{
+  "description": "Number field decoding",
+  "definition": {
+    "version": 1,
+    "name": "NumberTest",
+    "messages": [
+      {
+        "name": "Scalars",
+        "id": "0x100",
+        "mask": "0x1FFFFFFF",
+        "fields": [
+          { "kind": "number", "name": "speed_le", "startByte": 0, "byteLength": 2, "byteOrder": "little" },
+          { "kind": "number", "name": "temp",     "startByte": 2, "byteLength": 1, "byteOrder": "little", "signed": true },
+          { "kind": "number", "name": "voltage",  "startByte": 3, "byteLength": 2, "byteOrder": "big",    "scale": 0.01, "unit": "V" },
+          { "kind": "number", "name": "packed",   "startByte": 5, "bitLength": 12, "startBit": 0, "byteOrder": "little" },
+          { "kind": "number", "name": "code",     "startByte": 7, "byteLength": 1, "byteOrder": "little", "base": "hex" }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "description": "decodes LE uint16, signed byte, BE scaled, 12-bit packed, and hex fields",
+      "frame": { "id": "0x100", "dlc": 8, "data": ["0x39", "0x05", "0xEC", "0x04", "0xB0", "0xFF", "0x00", "0xBE"] },
+      "expected": {
+        "messageName": "Scalars",
+        "fields": [
+          { "name": "speed_le", "value": "1337",   "rawValue": "1337"   },
+          { "name": "temp",     "value": "-20",    "rawValue": "-20"    },
+          { "name": "voltage",  "value": "12 V",   "rawValue": "1200"   },
+          { "name": "packed",   "value": "255",    "rawValue": "255"    },
+          { "name": "code",     "value": "0xBE",   "rawValue": "0xBE"  }
+        ]
+      }
+    },
+    {
+      "description": "minimum signed temperature (0x80 → -128)",
+      "frame": { "id": "0x100", "dlc": 8, "data": ["0x00", "0x00", "0x80", "0x00", "0x00", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "Scalars",
+        "fields": [
+          { "name": "speed_le", "value": "0",      "rawValue": "0"      },
+          { "name": "temp",     "value": "-128",   "rawValue": "-128"   },
+          { "name": "voltage",  "value": "0 V",    "rawValue": "0"      },
+          { "name": "packed",   "value": "0",      "rawValue": "0"      },
+          { "name": "code",     "value": "0x00",   "rawValue": "0x00"  }
+        ]
+      }
+    },
+    {
+      "description": "scaled value that produces a decimal result (0.01 V)",
+      "frame": { "id": "0x100", "dlc": 8, "data": ["0x00", "0x00", "0x00", "0x00", "0x01", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "Scalars",
+        "fields": [
+          { "name": "speed_le", "value": "0",       "rawValue": "0"      },
+          { "name": "temp",     "value": "0",       "rawValue": "0"      },
+          { "name": "voltage",  "value": "0.01 V",  "rawValue": "1"      },
+          { "name": "packed",   "value": "0",       "rawValue": "0"      },
+          { "name": "code",     "value": "0x00",    "rawValue": "0x00"  }
+        ]
+      }
+    },
+    {
+      "description": "fields whose end byte is beyond DLC show n/a",
+      "frame": { "id": "0x100", "dlc": 3, "data": ["0x39", "0x05", "0xEC", "0x00", "0x00", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "Scalars",
+        "fields": [
+          { "name": "speed_le", "value": "1337",  "rawValue": "1337"  },
+          { "name": "temp",     "value": "-20",   "rawValue": "-20"   },
+          { "name": "voltage",  "value": "n/a" },
+          { "name": "packed",   "value": "n/a" },
+          { "name": "code",     "value": "n/a" }
+        ]
+      }
+    }
+  ]
+}

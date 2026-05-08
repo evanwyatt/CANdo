@@ -4,7 +4,7 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "tsc",
-    "start": "npm run build && open -n -W \"$PWD/node_modules/electron/dist/Electron.app\" --args \"$PWD\"",
+    "start": "npm run build && electron .",
     "test": "jest",
     "postinstall": "electron-rebuild"
   },

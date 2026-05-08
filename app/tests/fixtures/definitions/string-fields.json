@@ -1,0 +1,64 @@
+{
+  "description": "String field decoding",
+  "definition": {
+    "version": 1,
+    "name": "StringTest",
+    "messages": [
+      {
+        "name": "DeviceInfo",
+        "id": "0x300",
+        "mask": "0x1FFFFFFF",
+        "fields": [
+          { "kind": "string", "name": "label",  "startByte": 0, "maxLength": 4 },
+          { "kind": "string", "name": "suffix", "startByte": 4, "maxLength": 4, "nullTerminated": false }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "description": "null-terminated label and fixed-length suffix",
+      "frame": { "id": "0x300", "dlc": 8, "data": ["0x41", "0x42", "0x43", "0x00", "0x58", "0x59", "0x5A", "0x21"] },
+      "expected": {
+        "messageName": "DeviceInfo",
+        "fields": [
+          { "name": "label",  "value": "\"ABC\""  },
+          { "name": "suffix", "value": "\"XYZ!\"" }
+        ]
+      }
+    },
+    {
+      "description": "null terminates string before maxLength",
+      "frame": { "id": "0x300", "dlc": 8, "data": ["0x41", "0x42", "0x00", "0x43", "0x44", "0x45", "0x46", "0x47"] },
+      "expected": {
+        "messageName": "DeviceInfo",
+        "fields": [
+          { "name": "label",  "value": "\"AB\""   },
+          { "name": "suffix", "value": "\"DEFG\"" }
+        ]
+      }
+    },
+    {
+      "description": "null at first byte gives empty string",
+      "frame": { "id": "0x300", "dlc": 8, "data": ["0x00", "0x00", "0x00", "0x00", "0x41", "0x42", "0x43", "0x44"] },
+      "expected": {
+        "messageName": "DeviceInfo",
+        "fields": [
+          { "name": "label",  "value": "\"\""      },
+          { "name": "suffix", "value": "\"ABCD\"" }
+        ]
+      }
+    },
+    {
+      "description": "startByte at or beyond DLC shows n/a",
+      "frame": { "id": "0x300", "dlc": 4, "data": ["0x41", "0x42", "0x43", "0x44"] },
+      "expected": {
+        "messageName": "DeviceInfo",
+        "fields": [
+          { "name": "label",  "value": "\"ABCD\"" },
+          { "name": "suffix", "value": "n/a" }
+        ]
+      }
+    }
+  ]
+}

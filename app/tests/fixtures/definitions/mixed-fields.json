@@ -1,0 +1,82 @@
+{
+  "description": "Mixed field types in a single message",
+  "definition": {
+    "version": 1,
+    "name": "MixedTest",
+    "messages": [
+      {
+        "name": "SensorPacket",
+        "id": "0x400",
+        "mask": "0x1FFFFFFF",
+        "description": "RPM + status flags + scaled voltage + ASCII label, all in one frame",
+        "fields": [
+          { "kind": "number", "name": "rpm",     "startByte": 0, "byteLength": 2, "byteOrder": "little" },
+          {
+            "kind": "bits",   "name": "flags",   "byteIndex": 2,
+            "bits": [
+              { "bit": 0, "name": "running" },
+              { "bit": 1, "name": "alarm" },
+              { "bit": 2, "name": "override", "activeHigh": false }
+            ]
+          },
+          { "kind": "number", "name": "voltage", "startByte": 3, "byteLength": 2, "byteOrder": "big", "scale": 0.1, "unit": "V" },
+          { "kind": "string", "name": "label",   "startByte": 5, "maxLength": 3 }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "description": "all fields populated: rpm, status bits, voltage, and label",
+      "frame": { "id": "0x400", "dlc": 8, "data": ["0xE8", "0x03", "0x03", "0x07", "0xD0", "0x41", "0x42", "0x00"] },
+      "expected": {
+        "messageName": "SensorPacket",
+        "fields": [
+          { "name": "rpm",     "value": "1000",                          "rawValue": "1000" },
+          { "name": "flags",   "value": "running=1, alarm=1, override=1", "rawValue": "0x03" },
+          { "name": "voltage", "value": "200 V",                         "rawValue": "2000" },
+          { "name": "label",   "value": "\"AB\""                                             }
+        ]
+      }
+    },
+    {
+      "description": "alarm set, override driven low (activeHigh=false bit=0), label truncated by null",
+      "frame": { "id": "0x400", "dlc": 8, "data": ["0x00", "0x01", "0x02", "0x00", "0x0A", "0x58", "0x00", "0x59"] },
+      "expected": {
+        "messageName": "SensorPacket",
+        "fields": [
+          { "name": "rpm",     "value": "256",                            "rawValue": "256"  },
+          { "name": "flags",   "value": "running=0, alarm=1, override=1", "rawValue": "0x02" },
+          { "name": "voltage", "value": "1 V",                           "rawValue": "10"   },
+          { "name": "label",   "value": "\"X\""                                              }
+        ]
+      }
+    },
+    {
+      "description": "override bit set (activeHigh=false → deasserted), max rpm, empty label",
+      "frame": { "id": "0x400", "dlc": 8, "data": ["0xFF", "0xFF", "0x04", "0x13", "0x88", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "SensorPacket",
+        "fields": [
+          { "name": "rpm",     "value": "65535",                          "rawValue": "65535" },
+          { "name": "flags",   "value": "running=0, alarm=0, override=0", "rawValue": "0x04"  },
+          { "name": "voltage", "value": "500 V",                          "rawValue": "5000"  },
+          { "name": "label",   "value": "\"\""                                                 }
+        ]
+      }
+    },
+    {
+      "description": "DLC=3 leaves voltage and label as n/a while number and bit fields remain valid",
+      "frame": { "id": "0x400", "dlc": 3, "data": ["0xE8", "0x03", "0x03", "0x00", "0x00", "0x00", "0x00", "0x00"] },
+      "expected": {
+        "messageName": "SensorPacket",
+        "fields": [
+          { "name": "rpm",     "value": "1000",                           "rawValue": "1000"  },
+          { "name": "flags",   "value": "running=1, alarm=1, override=1", "rawValue": "0x03"  },
+          { "name": "voltage", "value": "n/a" },
+          { "name": "label",   "value": "n/a" }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,64 @@
+{
+  "description": "ID and mask matching",
+  "definition": {
+    "version": 1,
+    "name": "MatchTest",
+    "messages": [
+      {
+        "name": "MotorCmd",
+        "id": "0x100",
+        "mask": "0x7F0",
+        "fields": [
+          { "kind": "number", "name": "speed", "startByte": 0, "byteLength": 2, "byteOrder": "little" }
+        ]
+      },
+      {
+        "name": "MotorResp",
+        "id": "0x110",
+        "mask": "0x7F0",
+        "fields": [
+          { "kind": "number", "name": "status", "startByte": 0, "byteLength": 1, "byteOrder": "little" }
+        ]
+      }
+    ]
+  },
+  "cases": [
+    {
+      "description": "exact base ID matches first message",
+      "frame": { "id": "0x100", "dlc": 2, "data": ["0x01", "0x00"] },
+      "expected": {
+        "messageName": "MotorCmd",
+        "fields": [
+          { "name": "speed", "value": "1", "rawValue": "1" }
+        ]
+      }
+    },
+    {
+      "description": "ID within masked range matches first message",
+      "frame": { "id": "0x10F", "dlc": 2, "data": ["0xFF", "0x00"] },
+      "expected": {
+        "messageName": "MotorCmd",
+        "fields": [
+          { "name": "speed", "value": "255", "rawValue": "255" }
+        ]
+      }
+    },
+    {
+      "description": "ID in second message range matches second message",
+      "frame": { "id": "0x115", "dlc": 2, "data": ["0x03", "0x00"] },
+      "expected": {
+        "messageName": "MotorResp",
+        "fields": [
+          { "name": "status", "value": "3", "rawValue": "3" }
+        ]
+      }
+    },
+    {
+      "description": "unrecognised ID matches nothing",
+      "frame": { "id": "0x200", "dlc": 2, "data": ["0x00", "0x00"] },
+      "expected": {
+        "messageName": null
+      }
+    }
+  ]
+}
