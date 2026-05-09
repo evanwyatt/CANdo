@@ -3,7 +3,7 @@ import { EventEmitter } from 'events';
 import {
   parseBuffer, cobsEncode, dlcToBytes,
   CMD_SET_SPEED, CMD_OPEN, CMD_CLOSE, CMD_TRANSMIT, CMD_HELLO,
-  CanFrame,
+  CanFrame, CapabilityInfo,
 } from './protocol';
 
 const COMMAND_TIMEOUT_MS = 2000;
@@ -114,6 +114,7 @@ export class SerialManager extends EventEmitter {
         else pending.reject(new Error('KO'));
       },
       () => { this.emit('hello'); },
+      (caps: CapabilityInfo) => { this.emit('caps', caps); },
     );
   }
 

@@ -8,6 +8,8 @@
 //   0x01  PKT_CAN_FRAME  [4B id LE][1B flags][1B dlc][N bytes data]
 //   0x02  PKT_RESPONSE   [1B status: 0x00=OK, 0xFF=KO]
 //   0x03  PKT_HELLO      (no payload) — handshake reply
+//   0x04  PKT_CAPS       [1B ver][1B num_speeds][1B caps_flags][N×4B rate_hz LE]
+//                        caps_flags bit 0: FD supported
 //
 // App → Device command types:
 //   0x01  CMD_SET_SPEED  [1B speed_idx 0-7]
@@ -49,6 +51,7 @@ static constexpr uint32_t LED_ON_MS = 30;
 static constexpr uint8_t PKT_CAN_FRAME = 0x01;
 static constexpr uint8_t PKT_RESPONSE  = 0x02;
 static constexpr uint8_t PKT_HELLO     = 0x03;
+static constexpr uint8_t PKT_CAPS      = 0x04;
 static constexpr uint8_t CMD_SET_SPEED = 0x01;
 static constexpr uint8_t CMD_OPEN      = 0x02;
 static constexpr uint8_t CMD_CLOSE     = 0x03;
@@ -56,13 +59,21 @@ static constexpr uint8_t CMD_TRANSMIT  = 0x04;
 static constexpr uint8_t CMD_HELLO     = 0x05;
 static constexpr uint8_t FLAG_EXT      = 0x01;
 static constexpr uint8_t FLAG_RTR      = 0x02;
+static constexpr uint8_t FLAG_FD       = 0x04;
+static constexpr uint8_t FLAG_BRS      = 0x08;
 
 // ── Speed table ───────────────────────────────────────────────────────────────
+static constexpr uint32_t FDCAN_CLK_HZ = 64000000UL;
+
 struct BitTiming { uint32_t prescaler, tseg1, tseg2; };
 static const BitTiming SPEED_TABLE[8] = {
     {4, 13, 2}, {2, 13, 2}, {1, 18, 2}, {1, 13, 2},
     {1, 10, 2}, {1,  8, 2}, {1,  6, 2}, {1,  5, 2},
 };
+
+static uint32_t compute_rate_hz(const BitTiming &bt) {
+    return FDCAN_CLK_HZ / (bt.prescaler * (1 + bt.tseg1 + bt.tseg2));
+}
 
 // ── Globals ───────────────────────────────────────────────────────────────────
 static FDCAN_HandleTypeDef hfdcan1;
@@ -72,9 +83,10 @@ static uint8_t speed_idx    = 0;
 static uint32_t led_sata_off = 0;
 static uint32_t led_work_off = 0;
 
-// Outgoing COBS encode buffer — largest outgoing packet is a CAN frame:
-// PKT_CAN_FRAME(1) + id(4) + flags(1) + dlc(1) + data(8) = 15 → COBS max 17
-static uint8_t tx_buf[20];
+// Outgoing COBS encode buffer — sized for the largest possible outgoing packet.
+// PKT_CAPS payload: type(1)+ver(1)+n(1)+flags(1)+8×4B = 36 → COBS max 38
+// Future CAN FD frame: type(1)+id(4)+flags(1)+dlc(1)+data(64) = 71 → COBS max 73
+static uint8_t tx_buf[80];
 
 // Incoming: accumulate raw bytes between 0x00 delimiters
 static uint8_t rx_raw[80];
@@ -177,6 +189,26 @@ static void send_hello_pkt() {
     SerialUSB.write(tx_buf, n);
 }
 
+// PKT_CAPS: [type][version=1][num_speeds][caps_flags][8 × 4B rate_hz LE]
+// caps_flags bit 0: FD supported (0 = classic CAN only)
+static void send_caps_pkt() {
+    static constexpr uint8_t NUM_SPEEDS = 8;
+    uint8_t payload[4 + NUM_SPEEDS * 4];
+    payload[0] = PKT_CAPS;
+    payload[1] = 1;           // version
+    payload[2] = NUM_SPEEDS;
+    payload[3] = 0;           // caps_flags: no FD support yet
+    for (uint8_t i = 0; i < NUM_SPEEDS; i++) {
+        uint32_t hz = compute_rate_hz(SPEED_TABLE[i]);
+        payload[4 + i*4 + 0] = (uint8_t)(hz);
+        payload[4 + i*4 + 1] = (uint8_t)(hz >>  8);
+        payload[4 + i*4 + 2] = (uint8_t)(hz >> 16);
+        payload[4 + i*4 + 3] = (uint8_t)(hz >> 24);
+    }
+    size_t n = cobs_encode(payload, sizeof(payload), tx_buf);
+    SerialUSB.write(tx_buf, n);
+}
+
 // ── FDCAN init / open / close / set-speed ────────────────────────────────────
 static bool fdcan_setup() {
     const BitTiming &bt = SPEED_TABLE[speed_idx];
@@ -257,6 +289,7 @@ static void handle_packet(const uint8_t *pkt, size_t len) {
         case CMD_HELLO:
             led_hello_twinkle();
             send_hello_pkt();
+            send_caps_pkt();
             break;
 
         case CMD_SET_SPEED:

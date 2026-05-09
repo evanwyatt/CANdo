@@ -3,6 +3,7 @@
 export const PKT_CAN_FRAME = 0x01; // [4B id LE][1B flags][1B dlc][N bytes data]
 export const PKT_RESPONSE  = 0x02; // [1B status: 0x00=OK, 0xFF=KO]
 export const PKT_HELLO     = 0x03; // (no payload) — handshake reply
+export const PKT_CAPS      = 0x04; // [1B ver][1B num_speeds][1B caps_flags][N×4B rate_hz LE]
 
 // App → Device
 export const CMD_SET_SPEED = 0x01; // [1B speed_idx 0-7]
@@ -45,6 +46,11 @@ export interface AppStatus {
   recordPath:   string | null;
   errorCount:   number;
   repeatActive: boolean;
+}
+
+export interface CapabilityInfo {
+  fdSupported: boolean;
+  ratesHz: number[];
 }
 
 export interface CanDoAPI {
@@ -143,6 +149,8 @@ export function unpackFrame(buf: Buffer, seq: number, ts: number): CanFrame | nu
 // Scans buf for 0x00-delimited COBS packets. Dispatches on type byte:
 //   PKT_CAN_FRAME → onFrame
 //   PKT_RESPONSE  → onResponse(ok: boolean)
+//   PKT_HELLO     → onHello()
+//   PKT_CAPS      → onCaps(CapabilityInfo)
 // Returns unconsumed tail (partial packet).
 export function parseBuffer(
   buf: Buffer,
@@ -151,6 +159,7 @@ export function parseBuffer(
   onFrame: (f: CanFrame) => void,
   onResponse: (ok: boolean) => void,
   onHello?: () => void,
+  onCaps?: (caps: CapabilityInfo) => void,
 ): Buffer {
   let start = 0;
   for (let i = 0; i < buf.length; i++) {
@@ -168,6 +177,14 @@ export function parseBuffer(
         onResponse(decoded[1] === 0x00);
       } else if (type === PKT_HELLO) {
         onHello?.();
+      } else if (type === PKT_CAPS && decoded.length >= 4) {
+        const numSpeeds = decoded[2];
+        const capsFlags = decoded[3];
+        const ratesHz: number[] = [];
+        for (let j = 0; j < numSpeeds && 4 + (j + 1) * 4 <= decoded.length; j++) {
+          ratesHz.push(decoded.readUInt32LE(4 + j * 4));
+        }
+        onCaps?.({ fdSupported: (capsFlags & 0x01) !== 0, ratesHz });
       }
     }
   }

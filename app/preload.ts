@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { CanFrame, AppStatus } from './src/protocol';
+import type { CanFrame, AppStatus, CapabilityInfo } from './src/protocol';
 import type { CanDefinitionFile } from './src/canDefinitions';
 
 export interface DecodedPayload {
@@ -52,4 +52,6 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('toast', (_e, m) => cb(m)),
   onDefinitions: (cb: (defs: CanDefinitionFile | null) => void) =>
     ipcRenderer.on('definitions', (_e, d) => cb(d)),
+  onCaps: (cb: (caps: CapabilityInfo) => void) =>
+    ipcRenderer.on('caps', (_e, c) => cb(c)),
 });

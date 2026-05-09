@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import { SerialPort } from 'serialport';
 import { SerialManager } from './src/serial';
 import { Logger } from './src/logger';
-import type { AppStatus, SpeedIndex } from './src/protocol';
+import type { AppStatus, SpeedIndex, CapabilityInfo } from './src/protocol';
 import { parseTransmitData } from './src/transmit';
 import { decodeFrameWithDefinitions } from './src/canDefinitions';
 import type { CanDefinitionFile } from './src/canDefinitions';
@@ -60,6 +60,10 @@ app.whenReady().then(() => {
       ? { msgName: decoded.definition.name, values: decoded.values }
       : null;
     win?.webContents.send('frame', { frame, decoded: decodedPayload });
+  });
+
+  serial.on('caps', (caps: CapabilityInfo) => {
+    win?.webContents.send('caps', caps);
   });
 
   serial.on('close', () => {

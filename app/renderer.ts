@@ -155,8 +155,8 @@ declare global {
       closeChannel(): Promise<'OK' | 'KO'>;
       startLogging(): Promise<string>;
       stopLogging(): Promise<void>;
-      transmitFrame(req: { id: number; ext: boolean; rtr: boolean; dlc: number; dataHex: string }): Promise<void>;
-      startRepeat(req: { id: number; ext: boolean; rtr: boolean; dlc: number; dataHex: string }, ms: number, count: number): Promise<void>;
+      transmitFrame(req: { id: number; ext: boolean; rtr: boolean; fd: boolean; brs: boolean; dlc: number; dataHex: string }): Promise<void>;
+      startRepeat(req: { id: number; ext: boolean; rtr: boolean; fd: boolean; brs: boolean; dlc: number; dataHex: string }, ms: number, count: number): Promise<void>;
       stopRepeat(): Promise<void>;
       loadDefinitions(): Promise<CanDefinitionFile>;
       saveDefinitions(defs: CanDefinitionFile): Promise<string>;
@@ -165,6 +165,7 @@ declare global {
       onStatus(cb: (s: AppStatus) => void): void;
       onToast(cb: (msg: string) => void): void;
       onDefinitions(cb: (defs: CanDefinitionFile | null) => void): void;
+      onCaps(cb: (caps: CapabilityInfo) => void): void;
     };
   }
 }
@@ -347,10 +348,23 @@ aggregateChk.addEventListener('change', () => {
 
 // ── Status updates ────────────────────────────────────────────────────────────
 
-const SPEED_LABELS: Record<number, string> = {
-  1: '1.000 Mbps', 2: '2.000 Mbps', 3: '~3.0 Mbps', 4: '4.000 Mbps',
-  5: '~4.9 Mbps',  6: '~5.8 Mbps',  7: '~7.1 Mbps', 8: '8.000 Mbps',
-};
+function formatSpeedLabel(hz: number): string {
+  const mbps = hz / 1_000_000;
+  const exact = (hz % 1_000) === 0;
+  return (exact ? '' : '~') + mbps.toFixed(3) + ' Mbps';
+}
+
+window.api.onCaps((caps) => {
+  const prev = parseInt(speedSelect.value, 10);
+  speedSelect.innerHTML = '';
+  caps.ratesHz.forEach((hz, i) => {
+    const opt = document.createElement('option');
+    opt.value = String(i + 1);
+    opt.textContent = formatSpeedLabel(hz);
+    if (i + 1 === prev) opt.selected = true;
+    speedSelect.appendChild(opt);
+  });
+});
 
 window.api.onStatus((s) => {
   appStatus = s;
@@ -383,7 +397,7 @@ window.api.onStatus((s) => {
   statusChan.className = s.channelOpen ? 'open' : '';
   statusChan.querySelector('span')!.textContent = s.channelOpen ? 'Open' : 'Closed';
 
-  const speedLabel = SPEED_LABELS[parseInt(speedSelect.value, 10)] ?? '—';
+  const speedLabel = speedSelect.options[speedSelect.selectedIndex]?.text ?? '—';
   statusSpeed.querySelector('span')!.textContent = s.channelOpen ? speedLabel : '—';
 
   if (s.recording && s.recordPath) {
