@@ -376,6 +376,7 @@ window.api.onStatus((s) => {
   channelBtn.disabled = !s.connected;
   channelBtn.textContent = s.channelOpen ? 'Close' : 'Open';
   channelBtn.classList.toggle('open', s.channelOpen);
+  speedSelect.disabled = s.channelOpen;
 
   recordBtn.disabled = !s.channelOpen;
   recordBtn.textContent = s.recording ? '⏹ Stop' : '⏺ Record';
