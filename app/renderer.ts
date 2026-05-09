@@ -1,4 +1,4 @@
-import type { CanFrame, AppStatus, SpeedIndex } from './src/protocol';
+import type { CanFrame, AppStatus, SpeedIndex, CapabilityInfo } from './src/protocol';
 import type {
   CanDefinitionFile, CanMessageDefinition, CanFieldDefinition,
   NumberFieldDefinition, BitFieldDefinition, BitSignalDefinition,
@@ -175,6 +175,7 @@ let appStatus: AppStatus = {
 };
 let totalFrames = 0;
 let activeDefinitions: CanDefinitionFile | null = null;
+let aggregateEnabled = true;
 
 // ── Element refs ───────────────────────────────────────────────────────────────
 
@@ -184,8 +185,9 @@ const connectBtn   = document.getElementById('connect-btn')!   as HTMLButtonElem
 const channelBtn   = document.getElementById('channel-btn')!   as HTMLButtonElement;
 const recordBtn    = document.getElementById('record-btn')!    as HTMLButtonElement;
 const refreshBtn   = document.getElementById('refresh-btn')!   as HTMLButtonElement;
-const clearBtn     = document.getElementById('clear-btn')!     as HTMLButtonElement;
-const frameCountEl = document.getElementById('frame-count')!;
+const clearBtn      = document.getElementById('clear-btn')!      as HTMLButtonElement;
+const aggregateChk  = document.getElementById('aggregate-chk')! as HTMLInputElement;
+const frameCountEl  = document.getElementById('frame-count')!;
 const filterInput  = document.getElementById('filter-input')!  as HTMLInputElement;
 const filterCount  = document.getElementById('filter-count')!;
 const idlistBtn    = document.getElementById('idlist-btn')!    as HTMLButtonElement;
@@ -333,9 +335,14 @@ clearBtn.addEventListener('click', () => {
   rowByDisplayIdx.clear();
   frameDataByKey.clear();
   frameLog.innerHTML = '';
+  nextDisplayIdx = 0;
   totalFrames = 0;
   frameCountEl.textContent = '0';
   updateFilterCount();
+});
+
+aggregateChk.addEventListener('change', () => {
+  aggregateEnabled = aggregateChk.checked;
 });
 
 // ── Status updates ────────────────────────────────────────────────────────────
@@ -543,8 +550,8 @@ window.api.onFrame((ev) => {
   totalFrames++;
   frameCountEl.textContent = String(totalFrames);
 
-  const key      = frameKey(frame);
-  const existing = rowByKey.get(key);
+  const contentKey = frameKey(frame);
+  const existing   = aggregateEnabled ? rowByKey.get(contentKey) : undefined;
 
   if (existing) {
     const countEl = existing.querySelector('.count-val')!;
@@ -553,12 +560,12 @@ window.api.onFrame((ev) => {
     const wrapper = existing.querySelector('.count-cell')!;
     wrapper.innerHTML = `<span class="count-badge"><span class="count-val">${next}</span></span>`;
     tsEl.textContent  = formatTs(frame.ts);
-    // Update decoded in case the data changed (count-keyed frames share data, but update anyway)
     updateDecodedEl(existing, frame);
   } else {
+    const rowKey = aggregateEnabled ? contentKey : String(nextDisplayIdx);
     const row = document.createElement('div');
     row.className    = 'frame-row' + (frame.ext ? ' ext' : '') + (frame.rtr ? ' rtr' : '');
-    row.dataset['key'] = key;
+    row.dataset['key'] = rowKey;
 
     const flagParts: string[] = [];
     if (frame.ext) flagParts.push('<span class="col-flags-ext">EXT</span>');
@@ -578,9 +585,9 @@ window.api.onFrame((ev) => {
       <div class="frame-decoded hidden"></div>
     `;
 
-    rowByKey.set(key, row);
+    rowByKey.set(rowKey, row);
     rowByDisplayIdx.set(nextDisplayIdx, row);
-    frameDataByKey.set(key, { id: frame.id, dlc: frame.dlc, data: frame.data });
+    frameDataByKey.set(rowKey, { id: frame.id, dlc: frame.dlc, data: frame.data });
     nextDisplayIdx++;
 
     // Apply decoded (from main-process pre-computed or inline)
