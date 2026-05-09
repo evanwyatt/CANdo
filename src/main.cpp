@@ -33,7 +33,7 @@
 //   FDCAN1_RX → PB8 (AF9)    LED_WORK → PA0  (active low)
 //   FDCAN1_TX → PB9 (AF9)    LED_SATA → PA15 (active low)
 //
-// Clock: SYSCLK=128 MHz (PLL_R), FDCAN=64 MHz (PLL_Q), USB=48 MHz (HSI48)
+// Clock: SYSCLK=170 MHz (PLL_R), FDCAN=170 MHz (PLL_Q), USB=48 MHz (HSI48)
 //
 
 #include <Arduino.h>
@@ -102,13 +102,17 @@ static uint8_t rx_raw_len = 0;
 // Decoded packet workspace (static to avoid stack pressure)
 static uint8_t rx_pkt[78];
 
-// ── System clock: 128 MHz core, 64 MHz FDCAN, 48 MHz USB ─────────────────────
+// ── System clock: 170 MHz core, 170 MHz FDCAN, 48 MHz USB ────────────────────
+// HSI16 → PLL: M=4 (VCO_in=4 MHz), N=85 (VCO=340 MHz), R=2 → 170 MHz SYSCLK
+//                                                          Q=2 → 170 MHz FDCAN
+// Boost mode (PWR_REGULATOR_VOLTAGE_SCALE1_BOOST) required for 170 MHz.
+// USB stays on HSI48 (independent of PLL).
 extern "C" void SystemClock_Config(void) {
     RCC_OscInitTypeDef       osc  = {};
     RCC_ClkInitTypeDef       clk  = {};
     RCC_PeriphCLKInitTypeDef pclk = {};
 
-    HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1);
+    HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST);
 
     osc.OscillatorType      = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_HSI48;
     osc.HSIState            = RCC_HSI_ON;
@@ -116,11 +120,11 @@ extern "C" void SystemClock_Config(void) {
     osc.HSI48State          = RCC_HSI48_ON;
     osc.PLL.PLLState        = RCC_PLL_ON;
     osc.PLL.PLLSource       = RCC_PLLSOURCE_HSI;
-    osc.PLL.PLLM            = RCC_PLLM_DIV2;
-    osc.PLL.PLLN            = 32;
+    osc.PLL.PLLM            = RCC_PLLM_DIV4;
+    osc.PLL.PLLN            = 85;
     osc.PLL.PLLP            = RCC_PLLP_DIV2;
-    osc.PLL.PLLQ            = RCC_PLLQ_DIV4;   // 64 MHz → FDCAN
-    osc.PLL.PLLR            = RCC_PLLR_DIV2;   // 128 MHz → SYSCLK
+    osc.PLL.PLLQ            = RCC_PLLQ_DIV2;   // 170 MHz → FDCAN
+    osc.PLL.PLLR            = RCC_PLLR_DIV2;   // 170 MHz → SYSCLK
     HAL_RCC_OscConfig(&osc);
 
     clk.ClockType      = RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_HCLK |
@@ -129,7 +133,7 @@ extern "C" void SystemClock_Config(void) {
     clk.AHBCLKDivider  = RCC_SYSCLK_DIV1;
     clk.APB1CLKDivider = RCC_HCLK_DIV1;
     clk.APB2CLKDivider = RCC_HCLK_DIV1;
-    HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_3);
+    HAL_RCC_ClockConfig(&clk, FLASH_LATENCY_4);
 
     pclk.PeriphClockSelection = RCC_PERIPHCLK_FDCAN | RCC_PERIPHCLK_USB;
     pclk.FdcanClockSelection  = RCC_FDCANCLKSOURCE_PLL;
