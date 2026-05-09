@@ -22,11 +22,12 @@
 //   bit 0: EXT — 29-bit extended ID
 //   bit 1: RTR — remote transmission request
 //
-// Speed table at PCLK1 = 64 MHz (prescaler × (1 + tseg1 + tseg2)):
-//   S1 → 1.000 Mbps  (4  × 16 = 64)   S5 → 4.923 Mbps  (1  × 13 = 13)
-//   S2 → 2.000 Mbps  (2  × 16 = 32)   S6 → 5.818 Mbps  (1  × 11 = 11)
-//   S3 → 3.048 Mbps  (1  × 21 = 21)   S7 → 7.111 Mbps  (1  ×  9 =  9)
-//   S4 → 4.000 Mbps  (1  × 16 = 16)   S8 → 8.000 Mbps  (1  ×  8 =  8)
+// Speed table at FDCAN = 170 MHz (prescaler × (1 + tseg1 + tseg2)):
+//   170 = 2×5×17, so exact Mbit/s rates only where P×total | 170.
+//   S1 → 1.000 Mbps (10 × 17 = 170)   S5 → 5.000 Mbps  (2  × 17 = 34)
+//   S2 → 2.000 Mbps ( 5 × 17 =  85)   S6 → ~6.071 Mbps (2  × 14 = 28)
+//   S3 → ~3.036 Mbps( 4 × 14 =  56)   S7 → ~7.083 Mbps (1  × 24 = 24)
+//   S4 → ~4.048 Mbps( 3 × 14 =  42)   S8 → ~8.095 Mbps (1  × 21 = 21)
 //
 // Pin assignments (STM32G431C8T6):
 //   FDCAN1_RX → PB8 (AF9)    LED_WORK → PA0  (active low)
@@ -63,12 +64,18 @@ static constexpr uint8_t FLAG_FD       = 0x04;
 static constexpr uint8_t FLAG_BRS      = 0x08;
 
 // ── Speed table ───────────────────────────────────────────────────────────────
-static constexpr uint32_t FDCAN_CLK_HZ = 64000000UL;
+static constexpr uint32_t FDCAN_CLK_HZ = 170000000UL;
 
 struct BitTiming { uint32_t prescaler, tseg1, tseg2; };
 static const BitTiming SPEED_TABLE[8] = {
-    {4, 13, 2}, {2, 13, 2}, {1, 18, 2}, {1, 13, 2},
-    {1, 10, 2}, {1,  8, 2}, {1,  6, 2}, {1,  5, 2},
+    {10, 13, 3},  // 1,000,000 Hz  1.000 Mbit/s  SP=82.4%
+    { 5, 13, 3},  // 2,000,000 Hz  2.000 Mbit/s  SP=82.4%
+    { 4, 11, 2},  // 3,035,714 Hz ~3.036 Mbit/s  SP=85.7%
+    { 3, 11, 2},  // 4,047,619 Hz ~4.048 Mbit/s  SP=85.7%
+    { 2, 13, 3},  // 5,000,000 Hz  5.000 Mbit/s  SP=82.4%
+    { 2, 11, 2},  // 6,071,428 Hz ~6.071 Mbit/s  SP=85.7%
+    { 1, 18, 5},  // 7,083,333 Hz ~7.083 Mbit/s  SP=79.2%
+    { 1, 16, 4},  // 8,095,238 Hz ~8.095 Mbit/s  SP=81.0%
 };
 
 static uint32_t compute_rate_hz(const BitTiming &bt) {
